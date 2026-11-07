@@ -1,0 +1,19 @@
+# Android / Gradle
+*.iml
+.gradle/
+.idea/
+.kotlin/
+build/
+local.properties
+captures/
+*.apk
+*.aab
+.DS_Store
+
+# f1server
+f1server/.venv/
+f1server/__pycache__/
+f1server/cache/
+f1server/recordings/
+f1server/*.env
+*.pem
