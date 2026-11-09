@@ -28,6 +28,7 @@ Major changes, newest first.
 
 ### 9 November 2026: tyre compounds on the F1 dashboard
 
+Following the Brazzilian Grand Prix, it became apparartent I'd forgotten how important seeing tire comounds were. 
 The timing tower now shows each car's tyre: the compound in F1's colours (**S** soft, **M** medium,
 **H** hard, **I** intermediate, **W** wet) and how many laps that set has done. It needs the
 updated `f1server`. Tyre data is part of F1's free live timing, so no F1 TV account is needed.
