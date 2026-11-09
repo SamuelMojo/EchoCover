@@ -44,7 +44,7 @@ log = logging.getLogger("f1server")
 
 # Only the feeds the dashboard needs.
 TOPICS = ["Heartbeat", "SessionInfo", "SessionStatus", "DriverList", "TimingData",
-          "LapCount", "TrackStatus", "ExtrapolatedClock", "Position.z"]
+          "LapCount", "TrackStatus", "ExtrapolatedClock", "TimingAppData", "Position.z"]
 
 # How long each kind of session can run, for deciding when to connect (minutes).
 SESSION_MINUTES = {"Practice": 75, "Qualifying": 90, "Sprint Qualifying": 80,
@@ -57,6 +57,8 @@ SLOW_PACE = 1.15             # a car slower than this x its best lap is treated 
 LOOP_SAMPLES = 15            # clean laps remembered per timing loop
 LOOP_SAVE_EVERY_S = 60
 LOOPS_FILE = os.path.join(HERE, "loops.json")
+
+TYRES = {"SOFT": "S", "MEDIUM": "M", "HARD": "H", "INTERMEDIATE": "I", "WET": "W"}
 
 TRACK_STATUS = {"1": "GREEN", "2": "YELLOW", "4": "SAFETY CAR", "5": "RED FLAG",
                 "6": "VSC", "7": "VSC ENDING"}
@@ -473,6 +475,22 @@ class LiveState:
             return True
         return status == "Finished" and now - (self.finished_at or now) < FINISHED_LINGER_S
 
+    def _tyre(self, num):
+        """The car's current tyre: compound, laps on the set (including earlier sessions) and
+        whether it was new when fitted. Empty until F1 has said which compound it's on."""
+        app = ((self.topics.get("TimingAppData") or {}).get("Lines") or {}).get(num) or {}
+        stints = indexed(app.get("Stints"))
+        if not stints:
+            return {}
+        stint = stints[-1][1] or {}
+        compound = TYRES.get(str(stint.get("Compound") or "").upper())
+        if not compound:
+            return {}
+        laps = stint.get("TotalLaps")
+        return {"tyre": compound,
+                "tyreLaps": int(laps) if isinstance(laps, (int, float)) else None,
+                "tyreNew": str(stint.get("New")).lower() == "true"}
+
     def summary(self):
         now = self.clock()
         with self.lock:
@@ -504,6 +522,7 @@ class LiveState:
                     "x": None,
                     "y": None,
                 }
+                row.update(self._tyre(num))
                 if race:
                     row["gap"] = line.get("GapToLeader") or ""
                     row["interval"] = (line.get("IntervalToPositionAhead") or {}).get("Value") or ""

@@ -5,7 +5,8 @@ A small Python service that powers the Echo's live F1 dashboard. It uses
 live timing feed and serves JSON that the Echo polls once a second:
 
 - `GET /f1`: whether a session is live, lap count (or time left), track status, and the
-  leaderboard with each car's position on the map. Between sessions it gives the next session
+  leaderboard with each car's position on the map and its tyre (compound, laps on the set).
+  Between sessions it gives the next session
   on the calendar instead, for the home screen countdown.
 - `GET /f1/track`: the circuit outline, from the MultiViewer circuit data that FastF1 uses.
 

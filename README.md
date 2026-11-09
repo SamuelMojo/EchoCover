@@ -22,6 +22,33 @@ The app on an Echo Show 8, photographed on my shelf.
 The home screen background takes its colour from the last played song. Between F1 sessions it shows
 a countdown to the next one.
 
+## Updates
+
+Major changes, newest first.
+
+### 9 November 2026: tyre compounds on the F1 dashboard
+
+The timing tower now shows each car's tyre: the compound in F1's colours (**S** soft, **M** medium,
+**H** hard, **I** intermediate, **W** wet) and how many laps that set has done. It needs the
+updated `f1server`. Tyre data is part of F1's free live timing, so no F1 TV account is needed.
+
+<img src="docs/images/f1-dashboard-tyres.jpg" alt="Live F1 dashboard at lap 58 of 71 of the Mexico City Grand Prix. The timing tower shows a red S tyre badge and the laps on the set next to each driver" width="640">
+
+*A replay of the 2026 Mexico City Grand Prix at lap 58, using F1's real timing and tyre data, on
+the Android emulator. Everyone was on softs after the red-flag restart.*
+
+### 9 November 2026: more accurate car positions
+
+Without F1 TV, the map estimates where each car is from F1's timing loops. The server now picks up
+the first loop after the start line, which F1 never reports directly, so dots no longer stall on
+the main straight every lap. It also remembers where each circuit's loops are, so positions are
+accurate from the start of every session instead of only after a few minutes.
+
+### 7 November 2026: first release
+
+Album cover display with tap controls, the home screen with the last played song and next F1
+session, and the live F1 dashboard.
+
 ## 1. Create a Spotify app (one-time, ~2 minutes)
 
 1. Go to https://developer.spotify.com/dashboard and create an app.
@@ -72,8 +99,8 @@ sign-in there, so use your Spotify email and password.
 ## Live F1 dashboard
 
 While an F1 session (practice, qualifying, sprint or race) is on, the screen switches to a black
-dashboard. It shows the lap count (or time left), track status, the timing tower, and a track map
-with a dot for each car. It switches back to the cover or clock about 10 minutes after the
+dashboard. It shows the lap count (or time left), track status, the timing tower with each car's
+tyre, and a track map with a dot for each car. It switches back to the cover or clock about 10 minutes after the
 session ends.
 
 The data comes from a small FastF1 server in `f1server/` that runs on another machine, such as an

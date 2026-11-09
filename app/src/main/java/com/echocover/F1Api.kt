@@ -15,7 +15,10 @@ data class F1Driver(
     val inPit: Boolean,
     val out: Boolean,       // retired, stopped or knocked out
     val x: Float?,          // map position (0..1), null when not on track
-    val y: Float?
+    val y: Float?,
+    val tyre: String? = null,   // S, M, H, I or W; null if unknown or the server is older
+    val tyreLaps: Int? = null,  // laps on this set, including earlier sessions
+    val tyreNew: Boolean = true
 )
 
 data class F1State(
@@ -65,7 +68,10 @@ class F1Api {
                     inPit = d.optBoolean("inPit"),
                     out = d.optBoolean("out"),
                     x = if (d.isNull("x")) null else d.getDouble("x").toFloat(),
-                    y = if (d.isNull("y")) null else d.getDouble("y").toFloat()
+                    y = if (d.isNull("y")) null else d.getDouble("y").toFloat(),
+                    tyre = d.optString("tyre").takeIf { it.isNotEmpty() },
+                    tyreLaps = d.optIntOrNull("tyreLaps"),
+                    tyreNew = d.optBoolean("tyreNew", true)
                 )
             }
             F1State(
