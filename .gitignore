@@ -16,4 +16,5 @@ f1server/__pycache__/
 f1server/cache/
 f1server/recordings/
 f1server/*.env
+f1server/loops.json*
 *.pem

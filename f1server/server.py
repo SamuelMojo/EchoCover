@@ -54,6 +54,9 @@ IDLE_RECONNECT_S = 90        # F1 sends a heartbeat every 15 s
 FINISHED_LINGER_S = 600      # keep showing the final order for a while after the flag
 LIVE_POSITIONS_FRESH_S = 10
 SLOW_PACE = 1.15             # a car slower than this x its best lap is treated as going slowly
+LOOP_SAMPLES = 15            # clean laps remembered per timing loop
+LOOP_SAVE_EVERY_S = 60
+LOOPS_FILE = os.path.join(HERE, "loops.json")
 
 TRACK_STATUS = {"1": "GREEN", "2": "YELLOW", "4": "SAFETY CAR", "5": "RED FLAG",
                 "6": "VSC", "7": "VSC ENDING"}
@@ -188,18 +191,52 @@ class Progress:
         self.crossings = {}         # mini-sector -> time completed, this lap
 
 
+class LoopMemory:
+    """Where each timing loop sits on each circuit, kept on disk. Without it every session
+    starts by guessing the loops' positions until a few clean laps have been timed."""
+
+    def __init__(self, path):
+        self.path = path
+        try:
+            with open(path) as f:
+                self.data = json.load(f)
+        except (OSError, ValueError):
+            self.data = {}
+
+    def load(self, key):
+        return {int(seg): deque(fractions, maxlen=LOOP_SAMPLES)
+                for seg, fractions in (self.data.get(key) or {}).items()}
+
+    def save(self, key, samples):
+        self.data[key] = {str(seg): [round(x, 5) for x in fractions]
+                          for seg, fractions in sorted(samples.items())}
+        tmp = self.path + ".tmp"
+        try:
+            with open(tmp, "w") as f:
+                json.dump(self.data, f)
+            os.replace(tmp, self.path)
+        except OSError:
+            log.exception("Couldn't save loop positions")
+
+
 class LiveState:
     """F1's live timing merged into one picture, plus what's needed to put cars on the map."""
 
-    def __init__(self, clock=time.time):
+    def __init__(self, clock=time.time, memory=None):
         self.clock = clock
         self.lock = threading.RLock()
         self.track = None
         self.next_session = None    # next session on the calendar, for the home screen countdown
+        self.memory = memory        # LoopMemory, or None to learn every session from scratch
+        self.memory_key = None
         self.reset()
 
     def reset(self):
         with self.lock:
+            self._save_loops()
+            self.memory_key = None
+            self.loops_changed = False
+            self.loops_saved_at = 0.0
             self.topics = {}
             self.connected = False
             self.last_message_at = 0.0
@@ -282,18 +319,26 @@ class LiveState:
         for num, line in lines.items():
             if not isinstance(line, dict):
                 continue
-            passed = 0
+            passed, cleared = 0, False
             for s, sector in indexed(line.get("Sectors")):
                 if not isinstance(sector, dict) or s >= len(counts):
                     continue
                 for j, seg in indexed(sector.get("Segments")):
                     if isinstance(seg, dict) and seg.get("Status"):
                         passed = max(passed, offsets[s] + j + 1)
+                    elif isinstance(seg, dict) and "Status" in seg:
+                        cleared = True
             if "NumberOfLaps" in line:
                 passed = total
+            p = self.progress.get(num)
+            if cleared and not passed and p is not None and p.seg == 0 and p.lap_start is not None:
+                # F1 clears last lap's mini-sectors as the car reaches the first timing loop.
+                # That loop's own status is only sent when it changes, so the clear is often
+                # the only sign the car has passed it.
+                passed = 1
             if not passed:
                 continue
-            p = self.progress.setdefault(num, Progress())
+            p = p or self.progress.setdefault(num, Progress())
             if passed >= total:
                 # The last mini-sector and the lap count both report the same line crossing.
                 if p.lap_start is not None and now - p.lap_start < 10:
@@ -329,7 +374,33 @@ class LiveState:
         if not ref or not (0.95 * ref < lap < 1.2 * ref):
             return      # standing start, pit stop, safety car or a slow lap: not representative
         for seg, t in p.crossings.items():
-            self.samples.setdefault(seg, deque(maxlen=15)).append((t - p.lap_start) / lap)
+            self.samples.setdefault(seg, deque(maxlen=LOOP_SAMPLES)).append((t - p.lap_start) / lap)
+        self.loops_changed = True
+        if now - self.loops_saved_at > LOOP_SAVE_EVERY_S:
+            self._save_loops()
+
+    def _recall_loops(self, counts):
+        """Once the circuit is known, starts from the loop positions earlier sessions there
+        learned (a circuit's loops are the same all weekend, and usually year to year)."""
+        if self.memory is None or self.memory_key is not None:
+            return
+        circuit = ((self.topics.get("SessionInfo") or {}).get("Meeting") or {}).get("Circuit") or {}
+        if not circuit.get("Key"):
+            return
+        self.memory_key = f"{circuit['Key']}/{'-'.join(map(str, counts))}"
+        remembered = self.memory.load(self.memory_key)
+        for seg, fractions in self.samples.items():
+            remembered.setdefault(seg, deque(maxlen=LOOP_SAMPLES)).extend(fractions)
+        self.samples = remembered
+        if remembered:
+            log.info("Using remembered timing-loop positions for %s",
+                     circuit.get("ShortName") or circuit["Key"])
+
+    def _save_loops(self):
+        if self.memory is not None and self.memory_key and getattr(self, "loops_changed", False):
+            self.memory.save(self.memory_key, self.samples)
+            self.loops_changed = False
+            self.loops_saved_at = self.clock()
 
     def _typical_lap(self):
         """Median personal best lap. Unlike the last lap, it isn't thrown by red flags."""
@@ -341,6 +412,7 @@ class LiveState:
     def _boundaries(self, counts):
         """Lap fraction at which each mini-sector ends: learned where possible, otherwise
         spread evenly through each sector using recent sector times."""
+        self._recall_loops(counts)
         typical = self._typical_lap()
         shares = []
         for line in (self.topics.get("TimingData", {}).get("Lines") or {}).values():
@@ -755,7 +827,8 @@ def main():
     os.makedirs(cache, exist_ok=True)
     fastf1.Cache.configure(cache_dir=cache)
 
-    state = LiveState()
+    # Replays learn from scratch, so they behave the same every time.
+    state = LiveState(memory=None if args.replay else LoopMemory(LOOPS_FILE))
     threading.Thread(target=track_loop, args=(state,), daemon=True).start()
     if args.replay:
         threading.Thread(target=run_replay, args=(state, args.replay, args.speed, args.skip),

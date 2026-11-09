@@ -17,8 +17,10 @@ An AWS `t4g.micro` works well; the server uses about 150 MB of RAM and very litt
 Since 2025, F1's live feed only sends car GPS positions to signed-in **F1 TV** subscribers. This
 also applies to FastF1's historical data. Without an account you still get lap count, leaderboard,
 gaps, pit stops and flags. The server then **estimates** where each car is from its mini-sector
-times (about 22 timing loops per lap). Expect positions to be
-roughly right on the first lap and close after two.
+times (about 22 timing loops per lap). It learns where each loop sits from clean laps and
+remembers this per circuit in `loops.json`. The first time it sees a track, positions are rough
+for the first couple of minutes of running. After that, and in every later session there, they
+start out close.
 
 With an F1 TV account, put `F1_USERNAME` and `F1_PASSWORD` in `f1server.env` (see below). The map
 then uses the real positions.
@@ -33,9 +35,11 @@ then uses the real positions.
    Linux or `ubuntu@` on Ubuntu:
 
    ```
-   rsync -av --exclude .venv --exclude cache --exclude __pycache__ -e "ssh -i ~/path/to/key.pem" \
-       f1server/ ec2-user@<instance-ip>:f1server/
+   rsync -av --exclude .venv --exclude cache --exclude __pycache__ --exclude loops.json \
+       -e "ssh -i ~/path/to/key.pem" f1server/ ec2-user@<instance-ip>:f1server/
    ```
+
+   `--exclude loops.json` keeps the loop positions the instance has learned.
 
 3. **Install and start it** on the instance:
 
