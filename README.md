@@ -28,7 +28,7 @@ Major changes, newest first.
 
 ### 9 November 2026: tyre compounds on the F1 dashboard
 
-Following the Brazzilian Grand Prix, it became apparartent I'd forgotten how important seeing tire comounds were. 
+Following the Brazilian Grand Prix, it became apparent I'd forgotten how important seeing tyre compounds was.
 The timing tower now shows each car's tyre: the compound in F1's colours (**S** soft, **M** medium,
 **H** hard, **I** intermediate, **W** wet) and how many laps that set has done. It needs the
 updated `f1server`. Tyre data is part of F1's free live timing, so no F1 TV account is needed.
@@ -37,6 +37,10 @@ updated `f1server`. Tyre data is part of F1's free live timing, so no F1 TV acco
 
 *A replay of the 2026 Mexico City Grand Prix at lap 58, using F1's real timing and tyre data, on
 the Android emulator. Everyone was on softs after the red-flag restart.*
+
+<img src="docs/images/f1-tyres-sao-paulo.jpg" alt="Timing tower at the end of the São Paulo Grand Prix, led by Norris, with every driver on a green I badge for intermediates and 8 to 10 laps on the set" width="480">
+
+*The finish of the 2026 São Paulo Grand Prix, where the field ended the race on intermediates.*
 
 ### 9 November 2026: more accurate car positions
 
